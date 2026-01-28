@@ -1,5 +1,5 @@
 {
-  "name": "past",
+  "name": "@corefound/past",
   "version": "0.0.1",
   "main": "dist/index.js",
   "module": "./dist/index.mjs",
@@ -10,23 +10,23 @@
   "scripts": {
     "build": "make build",
     "dev": "nodemon --exec ts-node -r tsconfig-paths/register ./tests/index.ts",
-    "pack": "rm -rf ./dist && npm version patch && tsup"
+    "prepare": "tsup",
+    "postinstall": "node scripts/build-native.js"
   },
   "dependencies": {
-    "chalk": "^5.6.2",
-    "node-addon-api": "^8.5.0",
-    "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.9.3"
-  },
-  "devDependencies": {
+    "@corefound/past": "./corefound-past-0.0.1.tgz",
     "@types/node": "^25.0.10",
+    "chalk": "^5.6.2",
     "eslint": "^4.17.0",
+    "global": "^4.4.0",
     "llvm-bindings": "^0.4.2",
     "mocha": "^5.0.0",
     "node": "^25.4.0",
+    "node-addon-api": "^8.5.0",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
     "zod": "^4.3.6"
   }
 }

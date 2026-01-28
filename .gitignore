@@ -4,3 +4,5 @@ dist/
 .idea/
 .vscode/
 cmake-build-debug/
+*tgz
+*zip

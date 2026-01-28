@@ -1,5 +1,4 @@
-const path = require('path');
 
-module.exports = require(
-  path.join(__dirname, 'build', 'Release', 'pastaddon.node')
-);
+const addon = require('./build/Release/pastaddon.node');
+
+module.exports = addon

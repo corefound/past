@@ -5,7 +5,6 @@
             "sources": [
                 "src/main.cpp",
                 "src/compiler/compiler.cpp",
-                "src/emitter/emitter.cpp",
             ],
             "include_dirs": [
                 "<!@(node -p \"require('node-addon-api').include\")",
