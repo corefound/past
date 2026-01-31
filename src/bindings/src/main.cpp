@@ -1,15 +1,22 @@
 #include <napi.h>
-#include <memory>
+#include "iostream"
+#include "binder/binder.h"
 
-
-Napi::String ToExecutableFile(const Napi::CallbackInfo& info) {
+Napi::Value Binder(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::String::New(env, "Hello from C++ Addon - byteCodeToFile");
+
+    if(!info[0].IsObject()) {
+        Napi::TypeError::New(env, "Expected AST object").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    const Napi::Function constructor = Binder::Init(env);
+    return constructor.New({ info[0] });
 }
 
-Napi::Object Init(const Napi::Env env, const Napi::Object exports) {
-    exports.Set("toExecutableFile", Napi::Function::New(env, ToExecutableFile));
+Napi::Object Init(Napi::Env env, Napi::Object exports) {
+    exports.Set("binder", Napi::Function::New(env, Binder));
     return exports;
 }
 
-NODE_API_MODULE(pastaddon, Init);
+NODE_API_MODULE(pastaddon, Init)

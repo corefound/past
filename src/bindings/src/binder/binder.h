@@ -5,29 +5,53 @@
 #pragma once
 #include <napi.h>
 #include "nodes/programs.h"
+#include <llvm/IRReader/IRReader.h>
+#include "helpers/helpers.h"
+#include "iostream"
 
-class Emitter : public Napi::ObjectWrap<Emitter> {
-public:
-  static Napi::Object Init(const Napi::Env env, Napi::Object exports) {
-    Napi::Function func = DefineClass(env, "Emitter", {
-       InstanceMethod("toExecutableFile",  &Emitter::ToExecutableFile),
-       InstanceMethod("print",  &Emitter::Print)
-    });
 
-    exports.Set("Emitter", func);
-    return exports;
-  }
+class Binder : public Napi::ObjectWrap<Binder> {
+  public:
+    static Napi::Function Init(Napi::Env env) {
+        return DefineClass(env, "Binder", {
+            InstanceMethod("print", &Binder::Print),
+            // add more methods here later
+        });
+    }
 
-  explicit Emitter(const Napi::CallbackInfo& info);
+    Binder(const Napi::CallbackInfo& info): ObjectWrap(info),
+        ast(
+            info[0].As<Napi::Object>()
+            .Get("ast").As<Napi::Object>()
+            .Get("name").As<Napi::String>(),
 
-private:
-  ProgramNode ast;
-  std::string ir;
+            info[0].As<Napi::Object>()
+            .Get("ast").As<Napi::Object>()
+            .Get("main").As<Napi::Array>(),
 
-  Napi::Value ToExecutableFile(const Napi::CallbackInfo& info);
+            info[0].As<Napi::Object>()
+            .Get("ast").As<Napi::Object>()
+            .Get("modules").As<Napi::Array>()
+        ) {
 
-  Napi::Value Print(const Napi::CallbackInfo& info) {
-    return Napi::String::New(info.Env(), ast.name);
-  };
+        const auto root = info[0].As<Napi::Object>();
+        const auto config = root.Get("config").As<Napi::Object>();
+
+        output   = config.Get("output").As<Napi::String>().Utf8Value();
+        target   = config.Get("target").As<Napi::String>().Utf8Value();
+        optimize = config.Get("optimize").As<Napi::String>().Utf8Value();
+
+        std::cout << "AST name: " << ast.name << std::endl;
+        std::cout << "Target: " << target << std::endl;
+    }
+
+  private:
+    ProgramNode ast;
+    std::string output;
+    std::string target;
+    std::string optimize;
+
+    Napi::Value Print(const Napi::CallbackInfo& info) {
+        return Napi::String::New(info.Env(), ast.name);
+    }
 };
-

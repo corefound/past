@@ -17,11 +17,13 @@ find_package(LLVM REQUIRED CONFIG)
 # Add your source files (must include at least one .cpp)
 add_library(llvmaddon SHARED
         ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp        # main cpp file for Node addon
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/LiteralNode.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/compiler/compiler.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/compiler/compiler.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/emitter/emitter.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/emitter/emitter.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/binder/binder.cpp
+
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/emitter/emitter.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/helpers/helpers.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/programs.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/binder/binder.h
 )
 
 # Make .node suffix for Node.js

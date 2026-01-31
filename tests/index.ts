@@ -1,4 +1,5 @@
 import { Past } from "@/index"
+import { binder } from '@/bindings';
 
 const ast = {
     "name": "./tests/index.ts",
@@ -40,6 +41,14 @@ const ast = {
     "modules": []
 }
 
-const past = new Past(ast)
-past.print();
-console.log(past.toExecutableFile());
+
+const api = binder({
+    config: {
+        output: "./tests/output",
+        target: "aot",
+        optimize: "-O2"
+    },
+    ast: ast
+})
+
+api.print()

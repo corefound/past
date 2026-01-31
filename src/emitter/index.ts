@@ -1,18 +1,18 @@
 import llvm from 'llvm-bindings';
 import * as fs from "fs";
-import bindings from "@/bindings"
-import { resolve } from "path";
 
 export class Emitter {
     protected context: llvm.LLVMContext;
     protected module: llvm.Module;
     protected builder: llvm.IRBuilder;
+    protected ir: string;
 
     constructor() {
-
         this.context = new llvm.LLVMContext();
         this.module = new llvm.Module('test', this.context);
         this.builder = new llvm.IRBuilder(this.context);
+
+        this.ir = this.module.print();
 
         const main = this.createFunction('main', this.builder.getInt32Ty(), []);
         this.builder.SetInsertPoint(main.getEntryBlock());
@@ -38,8 +38,6 @@ export class Emitter {
 
         return ptr;
     }
-
-
 
     protected getType = (type: string) => {
         switch (type) {
@@ -68,10 +66,6 @@ export class Emitter {
         llvm.WriteBitcodeToFile(this.module, path);
     }
 
-    toExecutableFile = (path: string = "./a.out") => {      
-        return bindings.toExecutableFile(resolve(path))
-    };
-
     toIRFile = (path: string) => {
         const ir = this.module.print()
         fs.writeFileSync(path, ir);
@@ -81,5 +75,3 @@ export class Emitter {
         console.log(this.module.print());
     }
 }
-
-

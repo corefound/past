@@ -4,7 +4,7 @@
             "target_name": "pastaddon",
             "sources": [
                 "src/main.cpp",
-                "src/compiler/compiler.cpp",
+                # "src/binder/binder.cpp",            
             ],
             "include_dirs": [
                 "<!@(node -p \"require('node-addon-api').include\")",
@@ -13,7 +13,7 @@
             ],
             "dependencies": ["<!(node -p \"require('node-addon-api').gyp\")"],
             "defines": ["NAPI_VERSION=8"],
-            "cflags_cc": ["-std=c++17", "-fexceptions"],
+            "cflags_cc": ["-std=c++23", "-fexceptions"],
             "xcode_settings": {
                 "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
                 "CLANG_CXX_LIBRARY": "libc++",

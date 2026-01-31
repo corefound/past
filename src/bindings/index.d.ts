@@ -1,5 +1,9 @@
 // index.d.ts
 
-export function toExecutableFile(p: any): string;
+type BinderType = {
+    print: () => void
+}
+
+export function binder(p: any): BinderType;
 
 
