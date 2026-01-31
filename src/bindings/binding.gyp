@@ -4,7 +4,8 @@
             "target_name": "pastaddon",
             "sources": [
                 "src/main.cpp",
-                # "src/binder/binder.cpp",            
+                "src/binder/binder.cpp",            
+                "src/emitter/emitter.cpp",            
             ],
             "include_dirs": [
                 "<!@(node -p \"require('node-addon-api').include\")",

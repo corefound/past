@@ -8,6 +8,7 @@
 #include <llvm/IRReader/IRReader.h>
 #include "helpers/helpers.h"
 #include "iostream"
+#include "emitter/emitter.h"
 
 
 class Binder : public Napi::ObjectWrap<Binder> {
@@ -41,8 +42,11 @@ class Binder : public Napi::ObjectWrap<Binder> {
         target   = config.Get("target").As<Napi::String>().Utf8Value();
         optimize = config.Get("optimize").As<Napi::String>().Utf8Value();
 
+        Emitter emitter(ast);
+
         std::cout << "AST name: " << ast.name << std::endl;
         std::cout << "Target: " << target << std::endl;
+        std::cout << "IR: " << emitter.ir << std::endl;
     }
 
   private:

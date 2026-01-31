@@ -1,14 +1,19 @@
-#pragma once
-#include <utility>
+//
+// Created by Brayhan De Aza on 1/30/26.
+//
 
+#pragma once
+
+#include <utility>
 #include "nodes/programs.h"
 
 class Emitter {
   public:
-
-    explicit Emitter(ProgramNode ast): ir("ir"), ast(std::move(ast)) {} // Declaration (definition in emitter.cpp)
-
-  protected:
     std::string ir;
+    explicit Emitter(ProgramNode ast);
+
+  private:
     ProgramNode ast;
+    void visitMain();
+    void visitModules();
 };
