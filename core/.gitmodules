@@ -1,6 +1,0 @@
-[submodule "libs/uni-algo"]
-	path = libs/uni-algo
-	url = https://github.com/yogilang/uni-algo.git
-[submodule "libs/--force"]
-	path = libs/--force
-	url = https://github.com/yogilang/uni-algo.git
