@@ -1,9 +1,10 @@
-node_modules/
-build/
-dist/
+gen/
 .idea/
-.vscode/
+.vscode
+build
+grammar/*.tokens
+grammar/*.listener
+grammar/*.base
+grammar/antlr
+libs/antlr4
 cmake-build-debug/
-*tgz
-*zip
-./a.out
