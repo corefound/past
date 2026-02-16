@@ -8,3 +8,4 @@ grammar/*.base
 grammar/antlr
 libs/antlr4
 cmake-build-debug/
+./.DS_Store
