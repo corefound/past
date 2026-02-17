@@ -1,0 +1,17 @@
+[
+	{
+		"type": "NullLiteral",
+		"value": "null"
+	},
+	{
+		"kind": "VariableDeclaration",
+		"flag": "const",
+		"name": "c",
+		"type": "i64",
+		"storage": "stack",
+		"value": {
+			"kind": "IntegerLiteral",
+			"value": "24"
+		}
+	}
+]

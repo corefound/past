@@ -6,9 +6,8 @@
 
 #include <emitter/emitter.h>
 
-
-inline void past::emitter::Emitter::toFile(const llvm::Module& module, const std::string& filename){
-    print("klk");
+namespace core {
+    inline void compile(const nlohmann::ordered_json ast) {
+        past::core::emitter::Emitter emitter(ast);
+    }
 }
-
-

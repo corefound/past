@@ -8,10 +8,18 @@
 #include <string>
 #include <vector>
 
-namespace past::emitter {
-    class Emitter {
-       public:
+#include "json.hpp"
+
+namespace past::core::emitter {
+    class Emitter final {
+        nlohmann::ordered_json ast;
+
+    public:
         static void print(const std::string& text);
+
+        explicit Emitter(const nlohmann::ordered_json& ast)
+            : ast(ast) {
+        }
 
         // Generate LLVM bitcode into a vector of bytes (in memory)
         static std::vector<uint8_t> toMemory(const llvm::Module& module);
@@ -28,5 +36,4 @@ namespace past::emitter {
         // Create an executable binary from LLVM module
         static void toExecutable(llvm::Module* module, const std::string& outputPath);
     };
-
 } // namespace yogi::lowering

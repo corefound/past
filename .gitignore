@@ -1,11 +1,3 @@
-gen/
 .idea/
 .vscode
-build
-grammar/*.tokens
-grammar/*.listener
-grammar/*.base
-grammar/antlr
-libs/antlr4
-cmake-build-debug/
 ./.DS_Store

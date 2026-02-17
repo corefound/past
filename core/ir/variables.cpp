@@ -8,83 +8,60 @@
 #include <llvm/Support/MemoryBuffer.h>
 #include <stdexcept>
 #include <string>
-#include "llvm/IR/Verifier.h"
-
 
 namespace past::core::ir {
-    llvm::Module* IR::generate(const nlohmann::ordered_json& node) {
-        loadAndLinkModulesFromFolder();
-        program(node);
-        return module.get();
-    }
+    llvm::Value* IR::variableDeclaration(const nlohmann::ordered_json& node) {
+        const auto type = std::any_cast<std::string>(node["type"]);
+        const auto identifier = std::any_cast<std::string>(node["name"]);
+        const auto value = std::any_cast<nlohmann::ordered_json>(node["value"]);
 
-    llvm::Value* IR::program(const nlohmann::ordered_json& node) {
-        // Create main function
-        llvm::Type* retType = builder->getInt32Ty();
-        auto* mainFunctionType = llvm::FunctionType::get(retType, false);
-        auto* mainFunction = llvm::Function::Create(mainFunctionType, llvm::Function::ExternalLinkage, "main", module.get());
+        llvm::Type* varType = mapDataType(type);
 
-        auto* entry = llvm::BasicBlock::Create(*context, "entry", mainFunction);
-        builder->SetInsertPoint(entry);
+        if (const llvm::Function* currentFn = builder->GetInsertBlock()->getParent(); !currentFn)
+            throw std::runtime_error("Must be inside a function to declare variable");
 
-        // Process all statements in the program
-        for (const auto body = static_cast<nlohmann::ordered_json>(node["body"]); const auto& statement : body) {
-            try {
-                statements(statement);
-            } catch (const std::exception& e) {
-                throw std::runtime_error("Program generation failed: " + std::string(e.what()));
+        // Evaluate initializer if present
+        llvm::Value* initVal = nullptr;
+        if (value.empty()) {
+            initVal = expressions(value);
+            if (!initVal)
+                throw std::runtime_error("Variable initializer produced null");
+
+            // Type conversion if necessary
+            if (initVal->getType() != varType) {
+                if (initVal->getType()->isIntegerTy() && varType->isFloatingPointTy()) {
+                    initVal = initVal->getType()->getIntegerBitWidth() == 1 ? builder->CreateUIToFP(initVal, varType, "init_bool_to_fp") : builder->CreateSIToFP(initVal, varType, "init_int_to_fp");
+                } else if (initVal->getType()->isFloatingPointTy() && varType->isIntegerTy()) {
+                    initVal = builder->CreateFPToSI(initVal, varType, "init_fp_to_int");
+                } else if (initVal->getType()->isIntegerTy() && varType->isIntegerTy()) {
+                    const auto* initType = llvm::cast<llvm::IntegerType>(initVal->getType());
+
+                    if (const auto* targetType = llvm::cast<llvm::IntegerType>(varType); initType->getBitWidth() < targetType->getBitWidth()) {
+                        initVal = initType->getBitWidth() == 1 ? builder->CreateZExt(initVal, varType, "init_zext") : builder->CreateSExt(initVal, varType, "init_sext");
+                    } else if (initType->getBitWidth() > targetType->getBitWidth()) {
+                        initVal = builder->CreateTrunc(initVal, varType, "init_trunc");
+                    }
+                } else if (initVal->getType()->isPointerTy() && varType->isPointerTy()) {
+                    initVal = builder->CreateBitCast(initVal, varType, "init_bitcast");
+                } else {
+                    throw std::runtime_error("Cannot convert initializer to variable type for: " + identifier);
+                }
+            }
+        } else {
+            // No initializer - create a default value (0 for numbers, nullptr for pointers)
+            if (varType->isIntegerTy()) {
+                initVal = llvm::ConstantInt::get(varType, 0);
+            } else if (varType->isFloatingPointTy()) {
+                initVal = llvm::ConstantFP::get(varType, 0.0);
+            } else if (varType->isPointerTy()) {
+                initVal = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(varType));
+            } else {
+                throw std::runtime_error("Unsupported type for uninitialized variable: " + identifier);
             }
         }
 
-        // Return 0
-        builder->CreateRet(llvm::ConstantInt::get(builder->getInt32Ty(), 0));
-
-        if (llvm::verifyFunction(*mainFunction, &llvm::errs()))
-            throw std::runtime_error("IR verification failed");
-
-        return mainFunction;
-    }
-
-    llvm::Value* IR::literal(const nlohmann::ordered_json& node) {
-        if (!node)
-            throw std::runtime_error("Cannot generate code for empty literal");
-
-        const std::string type = node["type"];
-        if (type == "FloatLiteral") {
-            const auto value = std::any_cast<std::string>(node["value"]);
-            return llvm::ConstantFP::get(builder->getDoubleTy(), std::stod(value));
-        }
-
-        if (type == "IntegerLiteral") {
-            const auto value = std::any_cast<std::string>(node["value"]);
-            return llvm::ConstantFP::get(builder->getInt32Ty(), std::stod(value));
-        }
-
-        if (type == "BooleanLiteral") {
-            const auto value = std::any_cast<std::string>(node["value"]);
-            return llvm::ConstantFP::get(builder->getInt1Ty(), value == "true" ? 1 : 0);
-        }
-
-        if (type == "NullLiteral") {
-            return llvm::ConstantInt::get(builder->getInt8Ty(), 0);
-        }
-
-        if (type == "StringLiteral") {
-            const auto value = std::any_cast<std::string>(node["value"]);
-            return builder->CreateGlobalString(value, "str");
-        }
-
-        if (type == "IdentifierLiteral") {
-            const auto value = std::any_cast<std::string>(node["value"]);
-            const auto it = symbols.find(value);
-
-            if (it == symbols.end())
-                throw std::runtime_error("Undefined identifier: " + value);
-
-            llvm::Value* alloc = it->second;
-            return builder->CreateLoad(alloc->getType(), alloc, value + ".load");
-        }
-
-        return nullptr;
+        // Store the SSA value directly - no alloca needed
+        symbols[identifier] = initVal;
+        return initVal;
     }
 }

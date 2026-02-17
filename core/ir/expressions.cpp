@@ -8,62 +8,105 @@
 #include <llvm/Support/MemoryBuffer.h>
 #include <stdexcept>
 #include <string>
-#include "llvm/IR/Verifier.h"
 
 
 namespace past::core::ir {
-    llvm::Value* IR::variableDeclaration(const nlohmann::ordered_json& node) {
-        const auto type = std::any_cast<std::string>(node["type"]);
-        const auto value = std::any_cast<nlohmann::ordered_json>(node["value"]);
+    llvm::Value* IR::expressions(const nlohmann::ordered_json& node) {
+        if (!node.empty())
+            throw std::runtime_error("Cannot generate code for empty expression");
 
-        const llvm::Type* varType = mapDataType(type);
+        const auto kind = std::any_cast<std::string>(node["kind"]);
 
-        if (const llvm::Function* currentFn = builder->GetInsertBlock()->getParent(); !currentFn)
-            throw std::runtime_error("Must be inside a function to declare variable");
-
-        // Evaluate initializer if present
-        llvm::Value* initVal = nullptr;
-        if (value.empty()) {
-            initVal = expression(node.value);
-            if (!initVal)
-                throw std::runtime_error("Variable initializer produced null");
-
-            // Type conversion if necessary
-            if (initVal->getType() != varType) {
-                if (initVal->getType()->isIntegerTy() && varType->isFloatingPointTy()) {
-                    initVal = initVal->getType()->getIntegerBitWidth() == 1 ? builder->CreateUIToFP(initVal, varType, "init_bool_to_fp") : builder->CreateSIToFP(initVal, varType, "init_int_to_fp");
-                } else if (initVal->getType()->isFloatingPointTy() && varType->isIntegerTy()) {
-                    initVal = builder->CreateFPToSI(initVal, varType, "init_fp_to_int");
-                } else if (initVal->getType()->isIntegerTy() && varType->isIntegerTy()) {
-                    const auto* initType = llvm::cast<llvm::IntegerType>(initVal->getType());
-                    const auto* targetType = llvm::cast<llvm::IntegerType>(varType);
-
-                    if (initType->getBitWidth() < targetType->getBitWidth()) {
-                        initVal = initType->getBitWidth() == 1 ? builder->CreateZExt(initVal, varType, "init_zext") : builder->CreateSExt(initVal, varType, "init_sext");
-                    } else if (initType->getBitWidth() > targetType->getBitWidth()) {
-                        initVal = builder->CreateTrunc(initVal, varType, "init_trunc");
-                    }
-                } else if (initVal->getType()->isPointerTy() && varType->isPointerTy()) {
-                    initVal = builder->CreateBitCast(initVal, varType, "init_bitcast");
-                } else {
-                    throw std::runtime_error("Cannot convert initializer to variable type for: " + node.identifier);
-                }
-            }
-        } else {
-            // No initializer - create a default value (0 for numbers, nullptr for pointers)
-            if (varType->isIntegerTy()) {
-                initVal = llvm::ConstantInt::get(varType, 0);
-            } else if (varType->isFloatingPointTy()) {
-                initVal = llvm::ConstantFP::get(varType, 0.0);
-            } else if (varType->isPointerTy()) {
-                initVal = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(varType));
-            } else {
-                throw std::runtime_error("Unsupported type for uninitialized variable: " + node.identifier);
-            }
+        // Try literals first
+        if (literal(node)) {
+            return literal(node);
         }
 
-        // Store the SSA value directly - no alloca needed
-        symbols[node.identifier] = initVal;
-        return initVal;
+        // Binary Expression
+        if (kind == "BinaryExpression") {
+            const auto left = std::any_cast<nlohmann::ordered_json>(node["left"]);
+            const auto right = std::any_cast<nlohmann::ordered_json>(node["right"]);
+
+            llvm::Value* L = expressions(left);
+            llvm::Value* R = expressions(right);
+
+            if (!L || !R)
+                throw std::runtime_error("Subexpression produced null");
+
+            const std::string& op = node["op"];
+
+            // FLOATING POINT OPERATIONS
+            if (L->getType()->isDoubleTy() || R->getType()->isDoubleTy()) {
+                L = promoteToDouble(L);
+                R = promoteToDouble(R);
+
+                if (op == "+")
+                    return builder->CreateFAdd(L, R, "fadd");
+                if (op == "-")
+                    return builder->CreateFSub(L, R, "fsub");
+                if (op == "*")
+                    return builder->CreateFMul(L, R, "fmul");
+                if (op == "/")
+                    return builder->CreateFDiv(L, R, "fdiv");
+                if (op == "%")
+                    return builder->CreateFRem(L, R, "frem");
+
+                throw std::runtime_error("Unsupported operator for double: " + op);
+            }
+
+            // FLOAT (32-bit) OPERATIONS
+            if (L->getType()->isFloatTy() || R->getType()->isFloatTy()) {
+                if (!L->getType()->isFloatingPointTy())
+                    L = builder->CreateSIToFP(L, builder->getFloatTy(), "int_to_float");
+                if (!R->getType()->isFloatingPointTy())
+                    R = builder->CreateSIToFP(R, builder->getFloatTy(), "int_to_float");
+
+                if (op == "+")
+                    return builder->CreateFAdd(L, R, "fadd");
+                if (op == "-")
+                    return builder->CreateFSub(L, R, "fsub");
+                if (op == "*")
+                    return builder->CreateFMul(L, R, "fmul");
+                if (op == "/")
+                    return builder->CreateFDiv(L, R, "fdiv");
+                if (op == "%")
+                    return builder->CreateFRem(L, R, "frem");
+
+                throw std::runtime_error("Unsupported operator for float: " + op);
+            }
+
+            // INTEGER OPERATIONS
+            if (L->getType()->isIntegerTy() && R->getType()->isIntegerTy()) {
+                const auto* Lit = llvm::cast<llvm::IntegerType>(L->getType());
+                const auto* Rit = llvm::cast<llvm::IntegerType>(R->getType());
+                const unsigned maxBits = std::max(Lit->getBitWidth(), Rit->getBitWidth());
+
+                llvm::IntegerType* opType = builder->getIntNTy(maxBits);
+
+                if (Lit->getBitWidth() < maxBits) {
+                    L = Lit->getBitWidth() == 1 ? builder->CreateZExt(L, opType, "zext_l") : builder->CreateSExt(L, opType, "sext_l");
+                }
+                if (Rit->getBitWidth() < maxBits) {
+                    R = Rit->getBitWidth() == 1 ? builder->CreateZExt(R, opType, "zext_r") : builder->CreateSExt(R, opType, "sext_r");
+                }
+
+                if (op == "+")
+                    return builder->CreateAdd(L, R, "addtmp");
+                if (op == "-")
+                    return builder->CreateSub(L, R, "subtmp");
+                if (op == "*")
+                    return builder->CreateMul(L, R, "multmp");
+                if (op == "/")
+                    return builder->CreateSDiv(L, R, "divtmp");
+                if (op == "%")
+                    return builder->CreateSRem(L, R, "modtmp");
+
+                throw std::runtime_error("Unsupported integer operator: " + op);
+            }
+
+            throw std::runtime_error("Unsupported operand types in Expression");
+        }
+
+        throw std::runtime_error("Invalid expression node");
     }
 }

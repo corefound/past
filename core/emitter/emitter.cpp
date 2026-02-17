@@ -5,7 +5,8 @@
 #include "emitter.h"
 #include <iostream>
 
-namespace past::emitter {
+namespace past::core::emitter {
+
     void Emitter::print(const std::string& text) {
         std::cout << text << std::endl;
     }

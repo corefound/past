@@ -25,10 +25,9 @@ set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 # ============================================================
 #                       PATHS
 # ============================================================
-set(GENERATED_DIR "${CMAKE_SOURCE_DIR}/src/antlr/generated")
-set(SOURCES_DIR "${CMAKE_SOURCE_DIR}/src")
 set(TESTS_DIR "${CMAKE_SOURCE_DIR}/tests")
 set(LIBS_DIR "${CMAKE_SOURCE_DIR}/libs")
+set(SRC_DIR "${CMAKE_SOURCE_DIR}")
 
 # ============================================================
 #                       LLVM
@@ -61,99 +60,100 @@ add_definitions(${LLVM_DEFINITIONS})
 #                PRODUCTION SOURCES & EXECUTABLE
 # ============================================================
 if (NOT ENABLE_TESTING)
-    IF (ENABLE_TESTING_FOR_TYPES_HINTS)
-        file(GLOB_RECURSE PROD_SOURCES
-                "${SOURCES_DIR}/*.cpp"
-                "${GENERATED_DIR}/*.cpp"
-                "${TESTS_DIR}/*.cpp"
-        )
-        add_executable(past ${PROD_SOURCES})
-    ENDIF ()
 
-    IF (NOT ENABLE_TESTING_FOR_TYPES_HINTS)
-        file(GLOB_RECURSE PROD_SOURCES
-                "${SOURCES_DIR}/*.cpp"
-                "${GENERATED_DIR}/*.cpp"
-        )
-        add_executable(past ${PROD_SOURCES})
-    ENDIF ()
-
+    add_executable(past
+            ${SRC_DIR}/main.cpp
+            ${SRC_DIR}/emitter/emitter.cpp
+            ${SRC_DIR}/ir/ir.cpp
+            ${SRC_DIR}/ir/expressions.cpp
+            ${SRC_DIR}/ir/statements.cpp
+            ${SRC_DIR}/ir/variables.cpp
+    )
 
     target_include_directories(past PRIVATE
-            ${CMAKE_SOURCE_DIR}
-            ${SOURCES_DIR}
-            ${GENERATED_DIR}
+            ${SRC_DIR}
             ${LIBS_DIR}
             ${LLVM_INCLUDE_DIRS}
             ${LLVM_ROOT}/include
-            ${LIBS_DIR}/uni-algo/include
     )
 
     target_link_directories(past PRIVATE
             ${LLVM_ROOT}/lib
     )
 
-    target_link_options(past PRIVATE "LINKER:-no_warn_duplicate_libraries")
+    target_link_libraries(past PRIVATE ${llvm_libs})
 
-    target_link_libraries(past
-            ${llvm_libs}
-    )
+    # ============================================================
+    # Silence macOS linker warnings for duplicate / reexported libs
+    # Must be AFTER add_executable
+    if(APPLE)
+        target_link_options(past PRIVATE
+                "LINKER:-w"
+                "LINKER:-no_warn_duplicate_libraries"
+        )
+    endif()
 
     # ============================================================
     #                       RUN TARGET
-    # ============================================================
     add_custom_target(run
+            COMMAND past
             DEPENDS past
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     )
-endif ()
+
+endif()
 
 # ============================================================
 #                     TEST EXECUTABLE
 # ============================================================
 if (ENABLE_TESTING)
-    file(GLOB TEST_SOURCES "${TESTS_DIR}/*.cpp")
 
-    # Get all production sources except the file with main()
-    file(GLOB_RECURSE PROD_SOURCES_NO_MAIN
-            "${SOURCES_DIR}/*.cpp"
-            "${GENERATED_DIR}/*.cpp"
-            "${TESTS_DIR}/*.cpp"
+    file(GLOB_RECURSE TEST_SOURCES "${TESTS_DIR}/*.cpp")
+
+    # Explicitly list production sources (excluding main.cpp)
+    set(PROD_SOURCES_NO_MAIN
+            ${SRC_DIR}/emitter/emitter.cpp
+            ${SRC_DIR}/ir/ir.cpp
+            ${SRC_DIR}/ir/expressions.cpp
+            ${SRC_DIR}/ir/statements.cpp
+            ${SRC_DIR}/ir/variables.cpp
     )
-    # Exclude both main.cpp and past.cpp (whichever contains main)
-    list(FILTER PROD_SOURCES_NO_MAIN EXCLUDE REGEX ".*(main|past)\\.cpp$")
 
     add_executable(past_tests
             ${TEST_SOURCES}
             ${PROD_SOURCES_NO_MAIN}
-            ${CMAKE_SOURCE_DIR}/libs/catch2/catch_amalgamated.cpp
+            ${LIBS_DIR}/catch2/catch_amalgamated.cpp
     )
 
     target_include_directories(past_tests PRIVATE
-            ${CMAKE_SOURCE_DIR}
-            ${SOURCES_DIR}
+            ${SRC_DIR}
             ${TESTS_DIR}
-            ${GENERATED_DIR}
             ${LIBS_DIR}
-            ${CMAKE_SOURCE_DIR}/external/catch2
+            ${SRC_DIR}/external/catch2
             ${LLVM_INCLUDE_DIRS}
             ${LLVM_ROOT}/include
-            ${LIBS_DIR}/uni-algo/include
     )
 
     target_link_directories(past_tests PRIVATE
             ${LLVM_ROOT}/lib
     )
 
-    target_link_options(past_tests PRIVATE "LINKER:-no_warn_duplicate_libraries")
+    target_link_libraries(past_tests PRIVATE ${llvm_libs})
 
-    target_link_libraries(past_tests
-            ${llvm_libs}
-    )
+    # Silence macOS linker warnings for test executable
+    if(APPLE)
+        target_link_options(past_tests PRIVATE
+                "LINKER:-w"
+                "LINKER:-no_warn_duplicate_libraries"
+        )
+    endif()
 
+    # ============================================================
+    #                       RUN TESTS TARGET
     add_custom_target(run-tests
             COMMAND past_tests
             DEPENDS past_tests
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     )
-endif ()
+
+endif()
